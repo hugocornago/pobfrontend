@@ -12,10 +12,12 @@ extern "C" {
     #include "luajit.h"
 }
 
-static int dummy_ConPrintf(lua_State* L)
-{
-    return 0;
-}
+void RegisterGeneralLuaCallbacks(lua_State* L);
+
+//static int dummy_ConPrintf(lua_State* L)
+//{
+//    return 0;
+//}
 
 class SubScript : public QThread {
     Q_OBJECT
@@ -26,8 +28,9 @@ public:
         lua_pushlightuserdata(L, this);
         lua_rawseti(L, LUA_REGISTRYINDEX, 0);
         luaL_openlibs(L);
-        lua_pushcfunction(L, dummy_ConPrintf);
-        lua_setglobal(L, "ConPrintf");
+        //lua_pushcfunction(L, dummy_ConPrintf);
+        //lua_setglobal(L, "ConPrintf");
+        RegisterGeneralLuaCallbacks(L);
         int err = luaL_loadstring(L, lua_tostring(L_main, 1));
         if (err) {
             std::cout << "Error in subscript: " << err << std::endl;

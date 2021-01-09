@@ -16,6 +16,12 @@ zlib_dep = dependency('zlib')
 qt5 = import('qt5')
 prep = qt5.preprocess(moc_headers : ['subscript.hpp', 'pobwindow.hpp'])
 
+extra_args = []
+if meson.get_compiler('cpp').get_id() == 'gcc'
+  extra_args = ['-Wno-reorder']
+endif
+
 executable('pobfrontend',
   sources : ['main.cpp', prep],
-  dependencies : [qt5_dep, gl_dep, zlib_dep, lua_dep])
+  dependencies : [qt5_dep, gl_dep, zlib_dep, lua_dep],
+  cpp_args: extra_args)

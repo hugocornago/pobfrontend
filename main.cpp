@@ -525,7 +525,7 @@ static int l_imgHandleIsValid(lua_State* L)
 
 static int l_imgHandleIsLoading(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "IsLoading", true);
+//    imgHandle_s* imgHandle = GetImgHandle(L, "IsLoading", true);
 //	int width, height;
 //	pobwindow->renderer->GetShaderImageSize(imgHandle->hnd, width, height);
     lua_pushboolean(L, false);
@@ -534,7 +534,7 @@ static int l_imgHandleIsLoading(lua_State* L)
 
 static int l_imgHandleSetLoadingPriority(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "SetLoadingPriority", true);
+//    imgHandle_s* imgHandle = GetImgHandle(L, "SetLoadingPriority", true);
     int n = lua_gettop(L);
     pobwindow->LAssert(L, n >= 1, "Usage: imgHandle:SetLoadingPriority(pri)");
     pobwindow->LAssert(L, lua_isnumber(L, 1), "imgHandle:SetLoadingPriority() argument 1: expected number, got %t", 1);
@@ -746,8 +746,8 @@ static int l_DrawImageQuad(lua_State* L)
 
 DrawStringCmd::DrawStringCmd(float X, float Y, int Align, int Size, int Font, const char *Text) : text(Text) {
     dscount++;
-    if (text.size() >= 2 && text[0] == '^') {
-        switch(text[1].toLatin1()) {
+    if (Text[0] == '^' && Text[1] != '\0') {
+        switch(Text[1]) {
         case '0':
             setCol(0.0f, 0.0f, 0.0f);
             break;
@@ -1446,7 +1446,7 @@ static int l_ConPrintf(lua_State* L)
     lua_insert(L, 1);
     lua_call(L, n, 1);
     pobwindow->LAssert(L, lua_isstring(L, 1), "ConPrintf() error: string.format returned non-string");
-    //std::cout << lua_tostring(L, 1) << std::endl;
+    std::cout << lua_tostring(L, 1) << std::endl;
     //pobwindow->sys->con->Printf("%s\n", lua_tostring(L, 1));
     return 0;
 }
@@ -1595,6 +1595,7 @@ static int l_Exit(lua_State* L)
         pobwindow->LAssert(L, lua_isstring(L, 1), "Exit() argument 1: expected string or nil, got %t", 1);
         msg = lua_tostring(L, 1);
     }
+    (void)msg;
     // FIXME
     //pobwindow->sys->Exit(msg);
     //pobwindow->didExit = true;
@@ -1605,6 +1606,52 @@ static int l_Exit(lua_State* L)
 
 #define ADDFUNC(n) lua_pushcclosure(L, l_##n, 0);lua_setglobal(L, #n);
 #define ADDFUNCCL(n, u) lua_pushcclosure(L, l_##n, u);lua_setglobal(L, #n);
+
+void RegisterGeneralLuaCallbacks(lua_State* L)
+{
+    // General function
+    ADDFUNC(SetWindowTitle);
+    ADDFUNC(GetCursorPos);
+    ADDFUNC(SetCursorPos);
+    ADDFUNC(ShowCursor);
+    ADDFUNC(IsKeyDown);
+    ADDFUNC(Copy);
+    ADDFUNC(Paste);
+    ADDFUNC(Deflate);
+    ADDFUNC(Inflate);
+    ADDFUNC(GetTime);
+    ADDFUNC(GetScriptPath);
+    ADDFUNC(GetRuntimePath);
+    ADDFUNC(GetUserPath);
+    ADDFUNC(MakeDir);
+    ADDFUNC(RemoveDir);
+    ADDFUNC(SetWorkDir);
+    ADDFUNC(GetWorkDir);
+    ADDFUNC(LaunchSubScript);
+    ADDFUNC(AbortSubScript);
+    ADDFUNC(IsSubScriptRunning);
+    ADDFUNC(LoadModule);
+    ADDFUNC(PLoadModule);
+    ADDFUNC(PCall);
+    lua_getglobal(L, "string");
+    lua_getfield(L, -1, "format");
+    ADDFUNCCL(ConPrintf, 1);
+    lua_pop(L, 1);		// Pop 'string' table
+    ADDFUNC(ConPrintTable);
+    ADDFUNC(ConExecute);
+    ADDFUNC(ConClear);
+    ADDFUNC(print);
+    ADDFUNC(SpawnProcess);
+    ADDFUNC(OpenURL);
+    ADDFUNC(SetProfiling);
+    ADDFUNC(Restart);
+    ADDFUNC(Exit);
+    lua_getglobal(L, "os");
+    lua_pushcfunction(L, l_Exit);
+    lua_setfield(L, -2, "exit");
+    lua_pop(L, 1);		// Pop 'os' table
+
+}
 
 int main(int argc, char **argv)
 {
@@ -1691,47 +1738,7 @@ int main(int argc, char **argv)
     lua_setfield(L, -2, "GetFileModifiedTime");
     lua_setfield(L, LUA_REGISTRYINDEX, "uisearchhandlemeta");
 
-    // General function
-    ADDFUNC(SetWindowTitle);
-    ADDFUNC(GetCursorPos);
-    ADDFUNC(SetCursorPos);
-    ADDFUNC(ShowCursor);
-    ADDFUNC(IsKeyDown);
-    ADDFUNC(Copy);
-    ADDFUNC(Paste);
-    ADDFUNC(Deflate);
-    ADDFUNC(Inflate);
-    ADDFUNC(GetTime);
-    ADDFUNC(GetScriptPath);
-    ADDFUNC(GetRuntimePath);
-    ADDFUNC(GetUserPath);
-    ADDFUNC(MakeDir);
-    ADDFUNC(RemoveDir);
-    ADDFUNC(SetWorkDir);
-    ADDFUNC(GetWorkDir);
-    ADDFUNC(LaunchSubScript);
-    ADDFUNC(AbortSubScript);
-    ADDFUNC(IsSubScriptRunning);
-    ADDFUNC(LoadModule);
-    ADDFUNC(PLoadModule);
-    ADDFUNC(PCall);
-    lua_getglobal(L, "string");
-    lua_getfield(L, -1, "format");
-    ADDFUNCCL(ConPrintf, 1);
-    lua_pop(L, 1);		// Pop 'string' table
-    ADDFUNC(ConPrintTable);
-    ADDFUNC(ConExecute);
-    ADDFUNC(ConClear);
-    ADDFUNC(print);
-    ADDFUNC(SpawnProcess);
-    ADDFUNC(OpenURL);
-    ADDFUNC(SetProfiling);
-    ADDFUNC(Restart);
-    ADDFUNC(Exit);
-    lua_getglobal(L, "os");
-    lua_pushcfunction(L, l_Exit);
-    lua_setfield(L, -2, "exit");
-    lua_pop(L, 1);		// Pop 'os' table
+    RegisterGeneralLuaCallbacks(L);
 
     int result = luaL_dofile(L, "Launch.lua");
     if (result != 0) {
