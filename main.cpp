@@ -1671,7 +1671,7 @@ int main(int argc, char **argv)
 
     L = luaL_newstate();
     luaL_openlibs(L);
-    luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE|LUAJIT_MODE_OFF);
+    //luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE|LUAJIT_MODE_OFF);
 
     // Callbacks
     lua_newtable(L);		// Callbacks table
