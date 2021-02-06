@@ -20,7 +20,7 @@ class POBWindow : public QOpenGLWindow {
     Q_OBJECT
 public:
 //    POBWindow(QWindow *parent = 0) : QOpenGLWindow(parent) {};
-    POBWindow() : stringCache(5) {
+    POBWindow() : stringCache(200) {
 //        QSurfaceFormat theformat(format());
 //        format.setProfile(QSurfaceFormat::CompatibilityProfile);
 /*        format.setDepthBufferSize(24);
