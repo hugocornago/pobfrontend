@@ -269,14 +269,14 @@ void POBWindow::keyReleaseEvent(QKeyEvent *event) {
     update();
 }
 
-void POBWindow::LAssert(lua_State* L, int cond, const char* fmt, ...) {
-    if ( !cond ) {
-        va_list va;
-        va_start(va, fmt);
-        lua_pushvfstring(L, fmt, va);
-        va_end(va);
-        lua_error(L);
-    }
+
+void POBWindow::LError(lua_State* L, const char* fmt, ...)
+{
+  va_list va;
+  va_start(va, fmt);
+  lua_pushvfstring(L, fmt, va);
+  va_end(va);
+  lua_error(L);
 }
 
 int POBWindow::IsUserData(lua_State* L, int index, const char* metaName)

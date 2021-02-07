@@ -58,7 +58,14 @@ public:
     void keyPressEvent(QKeyEvent *event);
     void keyReleaseEvent(QKeyEvent *event);
 
-    void LAssert(lua_State* L, int cond, const char* fmt, ...);
+    template<typename ...FmtArgs>
+    void LAssert(lua_State* L, int cond, const char* fmt, FmtArgs ...fmtArgs)
+    {
+      if (!cond) {
+        LError(L, fmt, fmtArgs...);
+      }
+    }
+    void LError(lua_State* L, const char* fmt, ...);
     int IsUserData(lua_State* L, int index, const char* metaName);
 
     void SetDrawLayer(int layer);
