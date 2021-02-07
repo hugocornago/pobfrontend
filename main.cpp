@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include <memory>
 #include <zlib.h>
 #include "main.h"
 #include "pobwindow.hpp"
@@ -64,7 +65,7 @@ void POBWindow::paintGL() {
     }
 
     for (auto& layer: layers) {
-      layer.clear();
+      layer.second.clear();
     }
 
     // Hack: PoB doesn't recalculate stats until the frame _after_ some changes (e.g. config). Just call OnFrame twice.
@@ -84,7 +85,7 @@ void POBWindow::paintGL() {
     }
 
     for (auto& layer : layers) {
-        for (auto& cmd : layer) {
+        for (auto& cmd : layer.second) {
             cmd->execute();
         }
     }
@@ -301,16 +302,13 @@ void POBWindow::SetDrawLayer(int layer, int subLayer) {
     curLayer = layer;
     curSubLayer = subLayer;
     QPair<int, int> key{layer, subLayer};
-    if (layers.contains(key)) {
-        return;
-    }
-    layers[key] = QList<std::shared_ptr<Cmd>>{};
+    layers[key];
 }
 
 
-void POBWindow::AppendCmd(std::shared_ptr<Cmd> cmd) {
+void POBWindow::AppendCmd(std::unique_ptr<Cmd> cmd) {
     if (collectDrawCommands) {
-        layers[{curLayer, curSubLayer}].append(cmd);
+        layers[{curLayer, curSubLayer}].emplace_back(std::move(cmd));
     }
 }
 
@@ -326,7 +324,7 @@ void POBWindow::DrawColor(const float col[4]) {
         drawColor[2] = 1.0f;
         drawColor[3] = 1.0f;
     }
-    AppendCmd(std::shared_ptr<Cmd>{new ColorCmd(drawColor)});
+    AppendCmd(std::make_unique<ColorCmd>(drawColor));
 }
 
 void POBWindow::DrawColor(uint32_t col) {
@@ -629,9 +627,9 @@ static int l_SetViewport(lua_State* L)
         for (int i = 1; i <= 4; i++) {
             pobwindow->LAssert(L, lua_isnumber(L, i), "SetViewport() argument %d: expected number, got %t", i, i);
         }
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new ViewportCmd((int)lua_tointeger(L, 1), (int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3), (int)lua_tointeger(L, 4))));
+        pobwindow->AppendCmd(std::make_unique<ViewportCmd>((int)lua_tointeger(L, 1), (int)lua_tointeger(L, 2), (int)lua_tointeger(L, 3), (int)lua_tointeger(L, 4)));
     } else {
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new ViewportCmd(0, 0, pobwindow->width, pobwindow->height)));
+        pobwindow->AppendCmd(std::make_unique<ViewportCmd>(0, 0, pobwindow->width, pobwindow->height));
     }
     return 0;
 }
@@ -689,13 +687,13 @@ static int l_DrawImage(lua_State* L)
             pobwindow->LAssert(L, lua_isnumber(L, i), "DrawImage() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new DrawImageCmd(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7])));
+        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
     } else {
         for (int i = 2; i <= 5; i++) {
             pobwindow->LAssert(L, lua_isnumber(L, i), "DrawImage() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new DrawImageCmd(hnd, arg[0], arg[1], arg[2], arg[3])));
+        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(hnd, arg[0], arg[1], arg[2], arg[3]));
     }
     return 0;
 }
@@ -740,13 +738,13 @@ static int l_DrawImageQuad(lua_State* L)
             pobwindow->LAssert(L, lua_isnumber(L, i), "DrawImageQuad() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new DrawImageQuadCmd(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7], arg[8], arg[9], arg[10], arg[11], arg[12], arg[13], arg[14], arg[15])));
+        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7], arg[8], arg[9], arg[10], arg[11], arg[12], arg[13], arg[14], arg[15]));
     } else {
         for (int i = 2; i <= 9; i++) {
             pobwindow->LAssert(L, lua_isnumber(L, i), "DrawImageQuad() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::shared_ptr<Cmd>(new DrawImageQuadCmd(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7])));
+        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
     }
     return 0;
 }
@@ -894,10 +892,10 @@ static int l_DrawString(lua_State* L)
     pobwindow->LAssert(L, lua_isstring(L, 6), "DrawString() argument 6: expected string, got %t", 6);
     static const char* alignMap[6] = { "LEFT", "CENTER", "RIGHT", "CENTER_X", "RIGHT_X", nullptr };
     static const char* fontMap[4] = { "FIXED", "VAR", "VAR BOLD", nullptr };
-    pobwindow->AppendCmd(std::shared_ptr<Cmd>(new DrawStringCmd(
+    pobwindow->AppendCmd(std::make_unique<DrawStringCmd>(
         (float)lua_tonumber(L, 1), (float)lua_tonumber(L, 2), luaL_checkoption(L, 3, "LEFT", alignMap), 
         (int)lua_tointeger(L, 4), luaL_checkoption(L, 5, "FIXED", fontMap), lua_tostring(L, 6)
-                                                  )));
+                                                  ));
     return 0;
 }
 

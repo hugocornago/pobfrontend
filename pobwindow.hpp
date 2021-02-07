@@ -66,7 +66,7 @@ public:
     void SetDrawSubLayer(int subLayer) {
         SetDrawLayer(curLayer, subLayer);
     }
-    void AppendCmd(std::shared_ptr<Cmd> cmd);
+    void AppendCmd(std::unique_ptr<Cmd> cmd);
     void DrawColor(const float col[4] = NULL);
     void DrawColor(uint32_t col);
     QString scriptPath;
@@ -82,7 +82,7 @@ public:
     bool collectDrawCommands = false;
     QString fontName;
     float drawColor[4];
-    QMap<QPair<int, int>, QList<std::shared_ptr<Cmd>>> layers;
+    std::map<QPair<int, int>, std::vector<std::unique_ptr<Cmd>>> layers;
     QList<std::shared_ptr<SubScript>> subScriptList;
     std::shared_ptr<QOpenGLTexture> white;
     QCache<QString, std::shared_ptr<QOpenGLTexture>> stringCache;
