@@ -23,7 +23,7 @@ if meson.get_compiler('cpp').get_id() == 'gcc'
   extra_args = ['-Wno-reorder']
   sanitizer = []
   #sanitizer = ['-fsanitize=leak']
-  sanitizer = ['-pg']
+  #sanitizer = ['-pg']
   extra_args += sanitizer
   extra_ld_args = sanitizer
 endif
