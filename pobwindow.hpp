@@ -3,6 +3,7 @@
 #include <QOpenGLWindow>
 #include <QPainter>
 #include <QStandardPaths>
+#include <QTimer>
 #include <memory>
 
 #include "main.h"
@@ -38,6 +39,8 @@ public:
         userPath = AppDataLocation;
 
         fontFudge = 0;
+
+        connect(&repaintTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWindow::update));
     }
 
 //    POBWindow() : QOpenGLWindow() {
@@ -93,4 +96,5 @@ public:
     QList<std::shared_ptr<SubScript>> subScriptList;
     std::shared_ptr<QOpenGLTexture> white;
     QCache<QString, std::shared_ptr<QOpenGLTexture>> stringCache;
+    QTimer repaintTimer;
 };

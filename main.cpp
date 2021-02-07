@@ -57,25 +57,18 @@ void POBWindow::paintGL() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glColor4f(0, 0, 0, 0);
 
-    collectDrawCommands = false;
-    pushCallback("OnFrame");
-    int result = lua_pcall(L, 1, 0, 0);
-    if (result != 0) {
-        lua_error(L);
-    }
+    repaintTimer.start(100);
 
     for (auto& layer: layers) {
       layer.second.clear();
     }
-
-    // Hack: PoB doesn't recalculate stats until the frame _after_ some changes (e.g. config). Just call OnFrame twice.
     dscount = 0;
     curLayer = 0;
     curSubLayer = 0;
 
     collectDrawCommands = true;
     pushCallback("OnFrame");
-    result = lua_pcall(L, 1, 0, 0);
+    int result = lua_pcall(L, 1, 0, 0);
     if (result != 0) {
         lua_error(L);
     }
@@ -1264,7 +1257,7 @@ static int l_Inflate(lua_State* L)
 static int l_GetTime(lua_State* L)
 {
     qint64 ms = QDateTime::currentDateTime().toMSecsSinceEpoch();
-    lua_pushinteger(L, ms / 1000);
+    lua_pushinteger(L, ms);
     return 1;
 }
 
