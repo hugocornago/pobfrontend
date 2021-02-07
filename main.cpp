@@ -63,6 +63,7 @@ void POBWindow::paintGL() {
       layer.second.clear();
     }
     dscount = 0;
+    currentLayer = &layers[{0, 0}];
     curLayer = 0;
     curSubLayer = 0;
 
@@ -294,12 +295,12 @@ void POBWindow::SetDrawLayer(int layer, int subLayer) {
     curLayer = layer;
     curSubLayer = subLayer;
     QPair<int, int> key{layer, subLayer};
-    layers[key];
+    currentLayer = &layers[key];
 }
 
 
 void POBWindow::AppendCmd(std::unique_ptr<Cmd> cmd) {
-    layers[{curLayer, curSubLayer}].emplace_back(std::move(cmd));
+    currentLayer->emplace_back(std::move(cmd));
 }
 
 void POBWindow::DrawColor(const float col[4]) {

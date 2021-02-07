@@ -41,6 +41,8 @@ public:
         fontFudge = 0;
 
         connect(&repaintTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWindow::update));
+
+        currentLayer = &layers[{0, 0}];
     }
 
 //    POBWindow() : QOpenGLWindow() {
@@ -92,6 +94,7 @@ public:
     QString fontName;
     float drawColor[4];
     std::map<QPair<int, int>, std::vector<std::unique_ptr<Cmd>>> layers;
+    std::vector<std::unique_ptr<Cmd>>* currentLayer = nullptr;
     QList<std::shared_ptr<SubScript>> subScriptList;
     std::shared_ptr<QOpenGLTexture> white;
     QCache<QString, std::shared_ptr<QOpenGLTexture>> stringCache;
