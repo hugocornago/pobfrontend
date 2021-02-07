@@ -78,8 +78,8 @@ void POBWindow::paintGL() {
         pobwindow->stringCache.setMaxCost(dscount);
     }
 
-    for (auto layer : layers) {
-        for (auto cmd : layer) {
+    for (auto& layer : layers) {
+        for (auto& cmd : layer) {
             cmd->execute();
         }
     }
