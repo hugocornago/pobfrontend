@@ -79,6 +79,7 @@ public:
     int width;
     int height;
     bool isDrawing;
+    bool collectDrawCommands = false;
     QString fontName;
     float drawColor[4];
     QMap<QPair<int, int>, QList<std::shared_ptr<Cmd>>> layers;

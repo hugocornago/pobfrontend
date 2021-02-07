@@ -56,18 +56,23 @@ void POBWindow::paintGL() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glColor4f(0, 0, 0, 0);
 
+    collectDrawCommands = false;
     pushCallback("OnFrame");
     int result = lua_pcall(L, 1, 0, 0);
     if (result != 0) {
         lua_error(L);
     }
 
+    for (auto& layer: layers) {
+      layer.clear();
+    }
+
     // Hack: PoB doesn't recalculate stats until the frame _after_ some changes (e.g. config). Just call OnFrame twice.
-    layers.clear();
     dscount = 0;
     curLayer = 0;
     curSubLayer = 0;
 
+    collectDrawCommands = true;
     pushCallback("OnFrame");
     result = lua_pcall(L, 1, 0, 0);
     if (result != 0) {
@@ -304,7 +309,9 @@ void POBWindow::SetDrawLayer(int layer, int subLayer) {
 
 
 void POBWindow::AppendCmd(std::shared_ptr<Cmd> cmd) {
-    layers[{curLayer, curSubLayer}].append(cmd);
+    if (collectDrawCommands) {
+        layers[{curLayer, curSubLayer}].append(cmd);
+    }
 }
 
 void POBWindow::DrawColor(const float col[4]) {
