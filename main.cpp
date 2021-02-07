@@ -66,7 +66,6 @@ void POBWindow::paintGL() {
     curLayer = 0;
     curSubLayer = 0;
 
-    collectDrawCommands = true;
     pushCallback("OnFrame");
     int result = lua_pcall(L, 1, 0, 0);
     if (result != 0) {
@@ -300,9 +299,7 @@ void POBWindow::SetDrawLayer(int layer, int subLayer) {
 
 
 void POBWindow::AppendCmd(std::unique_ptr<Cmd> cmd) {
-    if (collectDrawCommands) {
-        layers[{curLayer, curSubLayer}].emplace_back(std::move(cmd));
-    }
+    layers[{curLayer, curSubLayer}].emplace_back(std::move(cmd));
 }
 
 void POBWindow::DrawColor(const float col[4]) {

@@ -89,7 +89,6 @@ public:
     int width;
     int height;
     bool isDrawing;
-    bool collectDrawCommands = false;
     QString fontName;
     float drawColor[4];
     std::map<QPair<int, int>, std::vector<std::unique_ptr<Cmd>>> layers;
