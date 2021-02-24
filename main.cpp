@@ -5,8 +5,10 @@
 #include <QKeyEvent>
 #include <QtGui/QGuiApplication>
 
+#include <cstdio>
 #include <iostream>
 
+#include <iterator>
 #include <memory>
 #include <zlib.h>
 #include "main.h"
@@ -377,6 +379,84 @@ void ReadColorEscape(const char* str, float* out)
     }
     break;
     }
+}
+
+static constexpr const char* describeLuaError(int err)
+{
+  switch (err) {
+    case LUA_ERRERR:
+      return "error in error handling";
+    case LUA_ERRRUN:
+      return "runtime error";
+    case LUA_ERRMEM:
+      return "memory allocation error";
+  }
+  return "<unknown>";
+}
+
+static lua_CFunction g_prevPanicHandler;
+
+static int l_AtPanic(lua_State* L)
+{
+  std::cout << "lua PANIC: ";
+  if (lua_isstring(L, 1)) {
+    std::cout << lua_tostring(L, 1);
+  }
+  std::cout << std::endl;
+  if (g_prevPanicHandler) {
+    return g_prevPanicHandler(L);
+  }
+  return 0;
+}
+
+[[maybe_unused]] static void dumpLuaStack(lua_State* L, size_t limit = (size_t)-1)
+{
+  int top = lua_gettop(L);
+  for (int i = top; i >= 1 && limit > 0; --i, --limit) {
+    int t = lua_type(L, i);
+    std::printf("%4i %5i ", i, i - top - 1);
+    switch (t) {
+      case LUA_TSTRING:
+        std::cout << '"' << lua_tostring(L, i) << '"';
+        break;
+      case LUA_TNUMBER:
+        std::cout << lua_tonumber(L, i);
+        break;
+      case LUA_TBOOLEAN:
+        std::cout << (lua_toboolean(L, i) ? "true" : "false");
+        break;
+      case LUA_TNIL:
+      default:
+        std::cout << lua_typename(L, t) << " (" << t << ")";
+        break;
+    }
+    std::cout << "\n";
+  }
+  std::cout << std::endl;
+}
+
+static void installPanicHandler(lua_State* L)
+{
+  g_prevPanicHandler = lua_atpanic(L, l_AtPanic);
+}
+
+static void invokeLuaDebugTraceback(lua_State* L)
+{
+  lua_getfield(L, LUA_GLOBALSINDEX, "debug");
+  lua_getfield(L, -1, "traceback");
+  lua_remove(L, -2);
+  lua_call(L, 0, 1);
+  if (lua_isstring(L, -1)) {
+    std::cout << lua_tostring(L, -1) << "\n";
+  }
+  lua_remove(L, -1);
+}
+
+static int l_pcallErrorHandler(lua_State* L)
+{
+  invokeLuaDebugTraceback(L);
+  lua_pushvalue(L, 1);
+  return 1;
 }
 
 // =========
@@ -1421,15 +1501,19 @@ static int l_PCall(lua_State* L)
     int n = lua_gettop(L);
     pobwindow->LAssert(L, n >= 1, "Usage: PCall(func[, ...])");
     pobwindow->LAssert(L, lua_isfunction(L, 1), "PCall() argument 1: expected function, got %t", 1);
-    lua_getfield(L, LUA_REGISTRYINDEX, "traceback");
-    lua_insert(L, 1); // Insert traceback function at start of stack
+    lua_pushcfunction(L, l_pcallErrorHandler);
+    lua_insert(L, 1);
     int err = lua_pcall(L, n - 1, LUA_MULTRET, 1);
+    lua_remove(L, 1);
     if (err) {
+        std::cout << "PCall error: " << describeLuaError(err) << "\n";
+        if (lua_isstring(L, 1)) {
+          std::cout << lua_tostring(L, 1) << "\n";
+        }
+        invokeLuaDebugTraceback(L);
         lua_error(L);
         return 1;
     }
-    lua_pushnil(L);
-    lua_replace(L, 1); // Replace traceback function with nil
     return lua_gettop(L);
 }
 
@@ -1662,12 +1746,22 @@ int main(int argc, char **argv)
         int ff = args[1].toInt(&ok);
         if (ok) {
             pobwindow->fontFudge = ff;
+            args.removeAt(1);
         }
     }
 
     L = luaL_newstate();
+    installPanicHandler(L);
     luaL_openlibs(L);
     //luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE|LUAJIT_MODE_OFF);
+
+    // Arguments
+    lua_createtable(L, args.size(), 0);
+    for (size_t i = 0; const auto& arg : args) {
+      lua_pushstring(L, arg.toUtf8().constData());
+      lua_rawseti(L, -2, i++);
+    }
+    lua_setfield(L, LUA_GLOBALSINDEX, "arg");
 
     // Callbacks
     lua_newtable(L);		// Callbacks table
