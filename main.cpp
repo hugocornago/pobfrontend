@@ -1511,9 +1511,11 @@ static int l_PCall(lua_State* L)
           std::cout << lua_tostring(L, 1) << "\n";
         }
         invokeLuaDebugTraceback(L);
-        lua_error(L);
         return 1;
     }
+    // no error is represented as nil in the first member of the returned tuple
+    lua_pushnil(L);
+    lua_insert(L, 1);
     return lua_gettop(L);
 }
 
