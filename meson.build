@@ -14,8 +14,16 @@ zlib_dep = dependency('zlib')
 
 # Import the extension module that knows how
 # to invoke Qt tools.
+qt_headers = [
+  'src/subscript.hpp',
+  'src/pobwindow.hpp',
+  ]
+sources = [
+  'src/main.cpp',
+  'src/pobwindow.cpp',
+  ]
 qt5 = import('qt5')
-prep = qt5.preprocess(moc_headers : ['subscript.hpp', 'pobwindow.hpp'])
+prep = qt5.preprocess(moc_headers : qt_headers)
 
 extra_args = []
 extra_ld_args = []
@@ -30,7 +38,7 @@ endif
 extra_args += ['-Wall', '-Os', '-fno-omit-frame-pointer']
 
 executable('pobfrontend',
-  sources : ['main.cpp', prep],
+  sources : sources + prep,
   dependencies : [qt5_dep, gl_dep, zlib_dep, lua_dep],
   cpp_args: extra_args,
   link_args: extra_ld_args
