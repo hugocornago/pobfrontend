@@ -9,29 +9,10 @@
 #include "main.h"
 #include "subscript.hpp"
 
-extern "C" {
-    #include "lua.h"
-    #include "lualib.h"
-    #include "lauxlib.h"
-  //#include "luajit.h"
-}
-
-
 class POBWindow : public QOpenGLWindow {
     Q_OBJECT
 public:
-//    POBWindow(QWindow *parent = 0) : QOpenGLWindow(parent) {};
     POBWindow() : stringCache(200) {
-//        QSurfaceFormat theformat(format());
-//        format.setProfile(QSurfaceFormat::CompatibilityProfile);
-/*        format.setDepthBufferSize(24);
-        format.setStencilBufferSize(0);
-        format.setGreenBufferSize(8);
-        format.setRedBufferSize(8);
-        format.setBlueBufferSize(8);*/
-//        theformat.setAlphaBufferSize(8);
-//        std::cout << theformat.hasAlpha() << std::endl;
-//        setFormat(theformat);
         QString AppDataLocation = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         scriptPath = QDir::currentPath();
         scriptWorkDir = QDir::currentPath();
@@ -44,11 +25,6 @@ public:
 
         currentLayer = &layers[{0, 0}];
     }
-
-//    POBWindow() : QOpenGLWindow() {
-//    };
-//    ~POBWindow() {};
-//protected:
 
     void initializeGL();
     void resizeGL(int w, int h);
@@ -63,14 +39,6 @@ public:
     void keyPressEvent(QKeyEvent *event);
     void keyReleaseEvent(QKeyEvent *event);
 
-    template<typename ...FmtArgs>
-    void LAssert(lua_State* L, int cond, const char* fmt, FmtArgs ...fmtArgs)
-    {
-      if (!cond) {
-        LError(L, fmt, fmtArgs...);
-      }
-    }
-    void LError(lua_State* L, const char* fmt, ...);
     int IsUserData(lua_State* L, int index, const char* metaName);
 
     void SetDrawLayer(int layer);
@@ -100,3 +68,6 @@ public:
     QCache<QString, std::shared_ptr<QOpenGLTexture>> stringCache;
     QTimer repaintTimer;
 };
+
+extern POBWindow* pobwindow;
+extern int dscount;

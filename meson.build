@@ -2,9 +2,6 @@ project('POB Frontend', 'cpp', default_options : ['cpp_std=c++17'])
 
 qt5_dep = dependency('qt5', modules : ['Gui'])
 lua_dep = dependency('lua51')
-#lua_dep = dependency('luajit')
-# NB on OSX you also need to invoke meson like so, because luajit:
-# LDFLAGS="-pagezero_size 10000 -image_base 100000000" meson pobfrontend build
 if build_machine.system() == 'darwin'
    gl_dep = dependency('appleframeworks', modules: ['OpenGL'])
 else
@@ -21,6 +18,9 @@ qt_headers = [
 sources = [
   'src/main.cpp',
   'src/pobwindow.cpp',
+  'src/lua_cb_gfx.cpp',
+  'src/lua_utils.cpp',
+  'src/utils.cpp',
   ]
 qt5 = import('qt5')
 prep = qt5.preprocess(moc_headers : qt_headers)
@@ -31,11 +31,12 @@ if meson.get_compiler('cpp').get_id() == 'gcc'
   extra_args = ['-Wno-reorder']
   sanitizer = []
   #sanitizer = ['-fsanitize=leak']
+  # gprof
   #sanitizer = ['-pg']
   extra_args += sanitizer
   extra_ld_args = sanitizer
 endif
-extra_args += ['-Wall', '-Os', '-fno-omit-frame-pointer']
+extra_args += ['-Wall', '-Os', '-g', '-fno-omit-frame-pointer']
 
 executable('pobfrontend',
   sources : sources + prep,
