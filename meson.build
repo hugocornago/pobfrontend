@@ -20,6 +20,7 @@ sources = [
   'src/pobwindow.cpp',
   'src/lua_cb_gfx.cpp',
   'src/lua_utils.cpp',
+  'src/texture_loader.cpp',
   'src/utils.cpp',
   ]
 qt5 = import('qt5')
@@ -31,12 +32,13 @@ if meson.get_compiler('cpp').get_id() == 'gcc'
   extra_args = ['-Wno-reorder']
   sanitizer = []
   #sanitizer = ['-fsanitize=leak']
+  #sanitizer = ['-fsanitize=address']
   # gprof
   #sanitizer = ['-pg']
   extra_args += sanitizer
   extra_ld_args = sanitizer
 endif
-extra_args += ['-Wall', '-Os', '-g', '-fno-omit-frame-pointer']
+extra_args += ['-Wall', '-Os', '-fno-omit-frame-pointer']
 
 executable('pobfrontend',
   sources : sources + prep,

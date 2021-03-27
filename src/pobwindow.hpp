@@ -1,18 +1,23 @@
-#include <QCache>
-#include <QDir>
-#include <QOpenGLWindow>
-#include <QPainter>
-#include <QStandardPaths>
-#include <QTimer>
 #include <memory>
 
+#include <QCache>
+#include <QDir>
+#include <QHash>
+#include <QOpenGLWindow>
+#include <QPainter>
+#include <QSet>
+#include <QStandardPaths>
+#include <QTimer>
+
 #include "main.h"
+#include "src/texture_loader.hpp"
 #include "subscript.hpp"
+#include "lazy_loaded_texture.hpp"
 
 class POBWindow : public QOpenGLWindow {
     Q_OBJECT
 public:
-    POBWindow() : stringCache(200) {
+    POBWindow() : stringCache(200), textureCache(12) {
         QString AppDataLocation = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         scriptPath = QDir::currentPath();
         scriptWorkDir = QDir::currentPath();
@@ -24,7 +29,19 @@ public:
         connect(&repaintTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWindow::update));
 
         currentLayer = &layers[{0, 0}];
+
+        textureIndexByPath.reserve(200);
+        lazyLoadedTexture.append({
+            .index = 0,
+            .path = "<none>",
+            .size = { 1, 1 },
+            .state = LoadState::Loaded,
+            });
+
+        textureLoader.start();
     }
+
+    ~POBWindow();
 
     void initializeGL();
     void resizeGL(int w, int h);
@@ -39,6 +56,11 @@ public:
     void keyPressEvent(QKeyEvent *event);
     void keyReleaseEvent(QKeyEvent *event);
 
+    LazyLoadedTexture& GetLazyLoadedTexture(const QString& path);
+    LazyLoadedTexture& GetLazyLoadedTexture(TextureIndex index);
+    QOpenGLTexture& GetTexture(TextureIndex index);
+    bool RetrieveLoadedTextures();
+
     int IsUserData(lua_State* L, int index, const char* metaName);
 
     void SetDrawLayer(int layer);
@@ -49,6 +71,7 @@ public:
     void AppendCmd(std::unique_ptr<Cmd> cmd);
     void DrawColor(const float col[4] = NULL);
     void DrawColor(uint32_t col);
+
     QString scriptPath;
     QString scriptWorkDir;
     QString basePath;
@@ -61,11 +84,19 @@ public:
     bool isDrawing;
     QString fontName;
     float drawColor[4];
+
+    TextureLoader textureLoader;
+    QList<std::shared_ptr<SubScript>> subScriptList;
+
     std::map<QPair<int, int>, std::vector<std::unique_ptr<Cmd>>> layers;
     std::vector<std::unique_ptr<Cmd>>* currentLayer = nullptr;
-    QList<std::shared_ptr<SubScript>> subScriptList;
-    std::shared_ptr<QOpenGLTexture> white;
+    std::vector<std::pair<TextureIndex, std::unique_ptr<QImage>>> tmpLoadedTextures;
+    std::unique_ptr<QOpenGLTexture> white;
+    QHash<QString, TextureIndex> textureIndexByPath;
+    QSet<size_t> uniqueTextureDrawn;
+    QList<LazyLoadedTexture> lazyLoadedTexture;
     QCache<QString, std::shared_ptr<QOpenGLTexture>> stringCache;
+    QCache<size_t, QOpenGLTexture> textureCache;
     QTimer repaintTimer;
 };
 

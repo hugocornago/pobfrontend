@@ -4,6 +4,9 @@
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QtGui/QGuiApplication>
+#include <QImageReader>
+#include <memory>
+#include <stdexcept>
 
 #include "lua_utils.hpp"
 
@@ -83,6 +86,12 @@ bool pushKeyString(int keycode) {
 
 }
 
+POBWindow::~POBWindow()
+{
+    textureLoader.stop();
+    textureLoader.wait();
+}
+
 void POBWindow::initializeGL() {
     QImage wimg{1, 1, QImage::Format_Mono};
     wimg.fill(1);
@@ -107,7 +116,7 @@ void POBWindow::resizeGL(int w, int h) {
 }
 
 void POBWindow::paintGL() {
-    exit(1);
+    //exit(1);
     isDrawing = true;
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glColor4f(0, 0, 0, 0);
@@ -117,7 +126,10 @@ void POBWindow::paintGL() {
     for (auto& layer: layers) {
       layer.second.clear();
     }
+
+    uniqueTextureDrawn.clear();
     dscount = 0;
+
     currentLayer = &layers[{0, 0}];
     curLayer = 0;
     curSubLayer = 0;
@@ -129,7 +141,14 @@ void POBWindow::paintGL() {
     }
 
     if (dscount > stringCache.maxCost()) {
-        stringCache.setMaxCost(dscount);
+        stringCache.setMaxCost(static_cast<int>(1.2f * dscount));
+    }
+    if (uniqueTextureDrawn.size() > textureCache.maxCost()) {
+        textureCache.setMaxCost(static_cast<int>(1.2f * uniqueTextureDrawn.size()));
+    }
+
+    if (RetrieveLoadedTextures()) {
+        repaintTimer.start(10);
     }
 
     for (auto& layer : layers) {
@@ -251,6 +270,81 @@ void POBWindow::keyReleaseEvent(QKeyEvent *event) {
         lua_error(L);
     }
     update();
+}
+
+LazyLoadedTexture& POBWindow::GetLazyLoadedTexture(const QString& path)
+{
+    auto iter = textureIndexByPath.find(path);
+    if (iter != textureIndexByPath.end()) {
+        return lazyLoadedTexture[iter->GetIndex()];
+    }
+
+    QImageReader reader(path);
+    QSize size = reader.size();
+    if (not size.isValid() || size.isEmpty()) {
+        // invalid image
+        return lazyLoadedTexture[0];
+    }
+    TextureIndex new_tex_idx = lazyLoadedTexture.size();
+    lazyLoadedTexture.append({
+            .index = new_tex_idx,
+            .path = path,
+            .size = size,
+            .state = LoadState::NotLoaded,
+            });
+    textureIndexByPath[path] = new_tex_idx;
+    return lazyLoadedTexture[new_tex_idx.GetIndex()];
+}
+
+LazyLoadedTexture& POBWindow::GetLazyLoadedTexture(TextureIndex index)
+{
+    if (index.GetIndex() >= static_cast<size_t>(lazyLoadedTexture.size())) {
+        return lazyLoadedTexture[0];
+    }
+    return lazyLoadedTexture[index.GetIndex()];
+}
+
+QOpenGLTexture& POBWindow::GetTexture(TextureIndex index)
+{
+    uniqueTextureDrawn.insert(index.GetIndex());
+
+    auto* tex = textureCache[index.GetIndex()];
+    if (tex != nullptr) {
+        return *tex;
+    }
+
+    auto& llt = lazyLoadedTexture[index.GetIndex()];
+    if (llt.state == LoadState::NotLoaded || llt.state == LoadState::Loaded) {
+        llt.state = LoadState::Loading;
+        textureLoader.request_load(llt);
+    }
+
+    if (white == nullptr) {
+        throw std::runtime_error("white is null");
+    }
+    return *white;
+}
+
+bool POBWindow::RetrieveLoadedTextures()
+{
+   textureLoader.collect_loaded_textures(tmpLoadedTextures); 
+   if (tmpLoadedTextures.empty()) {
+       return false;
+   }
+
+   for (auto& [idx, img] : tmpLoadedTextures) {
+       LoadState ls = LoadState::LoadFailed;
+       if (img) {
+           auto tex = std::make_unique<QOpenGLTexture>(*img);
+           if (tex->isCreated()) {
+               ls = LoadState::Loaded;
+               textureCache.insert(idx.GetIndex(), tex.release());
+           }
+       }
+       lazyLoadedTexture[idx.GetIndex()].state = ls;
+   }
+   tmpLoadedTextures.clear();
+   return true;
 }
 
 

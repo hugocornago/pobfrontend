@@ -13,6 +13,7 @@
 
 #include "main.h"
 #include "pobwindow.hpp"
+#include "qnamespace.h"
 #include "src/utils.hpp"
 #include "subscript.hpp"
 #include "lua_utils.hpp"
@@ -830,6 +831,7 @@ void RegisterGeneralLuaCallbacks(lua_State* L)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QGuiApplication app{argc, argv};
 
     QStringList args = app.arguments();

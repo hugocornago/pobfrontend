@@ -3,6 +3,7 @@
 #include <QOpenGLTexture>
 
 #include <memory>
+#include <stdexcept>
 
 extern "C" {
     #include "lua.h"
@@ -22,45 +23,41 @@ QRegularExpression colourCodes{R"((\^x.{6})|(\^\d))"};
 // =============
 
 struct imgHandle_s {
-    std::shared_ptr<QOpenGLTexture> *hnd;
-    QImage* img;
+    TextureIndex tex_idx = 0;
 };
 
 int l_NewImageHandle(lua_State* L)
 {
+    // Creates an image handle referencing LazyLoadedTexture 0
     auto imgHandle = (imgHandle_s*)lua_newuserdata(L, sizeof(imgHandle_s));
-    imgHandle->hnd = nullptr;
-    imgHandle->img = nullptr;
+    new (imgHandle) imgHandle_s;
     lua_pushvalue(L, lua_upvalueindex(1));
     lua_setmetatable(L, -2);
     return 1;
 }
 
-imgHandle_s* GetImgHandle(lua_State* L, const char* method, bool loaded)
+imgHandle_s* GetImgHandle(lua_State* L, const char* method)
 {
     LAssert(L, pobwindow->IsUserData(L, 1, "uiimghandlemeta"), "imgHandle:%s() must be used on an image handle", method);
     auto imgHandle = (imgHandle_s*)lua_touserdata(L, 1);
     lua_remove(L, 1);
-    if (loaded) {
-        //LAssert(L, imgHandle->hnd != NULL, "imgHandle:%s(): image handle has no image loaded", method);
-    }
     return imgHandle;
 }
 
 int l_imgHandleGC(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "__gc", false);
-    delete imgHandle->hnd;
-    delete imgHandle->img;
+    imgHandle_s* imgHandle = GetImgHandle(L, "__gc");
+    imgHandle->~imgHandle_s();
     return 0;
 }
 
 int l_imgHandleLoad(lua_State* L) 
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "Load", false);
+    imgHandle_s* imgHandle = GetImgHandle(L, "Load");
     int n = lua_gettop(L);
     LAssert(L, n >= 1, "Usage: imgHandle:Load(fileName[, flag1[, flag2...]])");
     LAssert(L, lua_isstring(L, 1), "imgHandle:Load() argument 1: expected string, got %t", 1);
+
     QString fileName = lua_tostring(L, 1);
     QString fullFileName;
     if (fileName.contains(':') || pobwindow->scriptWorkDir.isEmpty()) {
@@ -69,9 +66,10 @@ int l_imgHandleLoad(lua_State* L)
         fullFileName = pobwindow->scriptWorkDir + QDir::separator() + fileName;
     }
 
-    delete imgHandle->hnd;
-    imgHandle->hnd = new std::shared_ptr<QOpenGLTexture>();
-    delete imgHandle->img;
+    auto& img = pobwindow->GetLazyLoadedTexture(fullFileName);
+    imgHandle->tex_idx = img.index;
+
+#if 0
     int flags = TF_NOMIPMAP;
     for (int f = 2; f <= n; f++) {
         if ( !lua_isstring(L, f) ) {
@@ -88,56 +86,42 @@ int l_imgHandleLoad(lua_State* L)
             LAssert(L, 0, "imgHandle:Load(): unrecognised flag '%s'", flag);
         }
     }
-    imgHandle->img = new QImage();
-    imgHandle->img->load(fullFileName);
-    imgHandle->img->setText("fname", fullFileName);
-    //imgHandle->hnd = new QOpenGLTexture(img);
-    //pobwindow->renderer->RegisterShader(fullFileName, flags);
+#endif
     return 0;
 }
 
 int l_imgHandleUnload(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "Unload", false);
-    delete imgHandle->hnd;
-    imgHandle->hnd = nullptr;
-    delete imgHandle->img;
-    imgHandle->img = nullptr;
+  // NOTE: not used in scripts
     return 0;
 }
 
 int l_imgHandleIsValid(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "IsValid", false);
-    lua_pushboolean(L, imgHandle->hnd != nullptr);
+    imgHandle_s* imgHandle = GetImgHandle(L, "IsValid");
+    lua_pushboolean(L, imgHandle->tex_idx.IsValid());
     return 1;
 }
 
 int l_imgHandleIsLoading(lua_State* L)
 {
-//    imgHandle_s* imgHandle = GetImgHandle(L, "IsLoading", true);
-//	int width, height;
-//	pobwindow->renderer->GetShaderImageSize(imgHandle->hnd, width, height);
+  // NOTE: not used in scripts
     lua_pushboolean(L, false);
     return 1;
 }
 
 int l_imgHandleSetLoadingPriority(lua_State* L)
 {
-//    imgHandle_s* imgHandle = GetImgHandle(L, "SetLoadingPriority", true);
-    int n = lua_gettop(L);
-    LAssert(L, n >= 1, "Usage: imgHandle:SetLoadingPriority(pri)");
-    LAssert(L, lua_isnumber(L, 1), "imgHandle:SetLoadingPriority() argument 1: expected number, got %t", 1);
-    //pobwindow->renderer->SetShaderLoadingPriority(imgHandle->hnd, (int)lua_tointeger(L, 1));
+  // NOTE: not used in scripts
     return 0;
 }
 
 int l_imgHandleImageSize(lua_State* L)
 {
-    imgHandle_s* imgHandle = GetImgHandle(L, "ImageSize", true);
-    QSize size(imgHandle->img->size());
-    lua_pushinteger(L, size.width());
-    lua_pushinteger(L, size.height());
+    imgHandle_s* imgHandle = GetImgHandle(L, "ImageSize");
+    auto& img = pobwindow->GetLazyLoadedTexture(imgHandle->tex_idx);
+    lua_pushinteger(L, img.size.width());
+    lua_pushinteger(L, img.size.height());
     return 2;
 }
 
@@ -252,18 +236,12 @@ int l_DrawImage(lua_State* L)
     int n = lua_gettop(L);
     LAssert(L, n >= 5, "Usage: DrawImage({imgHandle|nil}, left, top, width, height[, tcLeft, tcTop, tcRight, tcBottom])");
     LAssert(L, lua_isnil(L, 1) || pobwindow->IsUserData(L, 1, "uiimghandlemeta"), "DrawImage() argument 1: expected image handle or nil, got %t", 1);
-    std::shared_ptr<QOpenGLTexture> hnd;
+    TextureIndex tex_idx = 0;
     if ( !lua_isnil(L, 1) ) {
         auto imgHandle = (imgHandle_s*)lua_touserdata(L, 1);
-        if (imgHandle->hnd->get() == nullptr) {
-            imgHandle->hnd->reset(new QOpenGLTexture(*(imgHandle->img)));
-            if (!(*imgHandle->hnd)->isCreated()) {
-                //std::cout << "BROKEN TEXTURE " << imgHandle->img->text("fname").toStdString() << std::endl;
-                *imgHandle->hnd = pobwindow->white;
-            }
-        }
-        LAssert(L, imgHandle->hnd != nullptr, "DrawImage(): image handle has no image loaded");
-        hnd = *imgHandle->hnd;
+        tex_idx = imgHandle->tex_idx;
+        // issue load request
+        pobwindow->GetTexture(tex_idx);
     }
     float arg[8];
     if (n > 5) {
@@ -272,23 +250,19 @@ int l_DrawImage(lua_State* L)
             LAssert(L, lua_isnumber(L, i), "DrawImage() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
+        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(tex_idx, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
     } else {
         for (int i = 2; i <= 5; i++) {
             LAssert(L, lua_isnumber(L, i), "DrawImage() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(hnd, arg[0], arg[1], arg[2], arg[3]));
+        pobwindow->AppendCmd(std::make_unique<DrawImageCmd>(tex_idx, arg[0], arg[1], arg[2], arg[3]));
     }
     return 0;
 }
 
-void DrawImageQuadCmd::execute() {
-    if (tex != nullptr && tex->isCreated()) {
-        tex->bind();
-    } else {
-        pobwindow->white->bind();
-    }
+void DrawTextureCmd::execute() {
+    this->BindTexture();
     glBegin(GL_TRIANGLE_FAN);
     for (int v = 0; v < 4; v++) {
         glTexCoord2d(s[v], t[v]);
@@ -297,24 +271,21 @@ void DrawImageQuadCmd::execute() {
     glEnd();
 }
 
+void DrawImageQuadCmd::BindTexture() {
+    pobwindow->GetTexture(tex).bind();
+}
+
 int l_DrawImageQuad(lua_State* L)
 {
     LAssert(L, pobwindow->isDrawing, "DrawImageQuad() called outside of OnFrame");
     int n = lua_gettop(L);
     LAssert(L, n >= 9, "Usage: DrawImageQuad({imgHandle|nil}, x1, y1, x2, y2, x3, y3, x4, y4[, s1, t1, s2, t2, s3, t3, s4, t4])");
     LAssert(L, lua_isnil(L, 1) || pobwindow->IsUserData(L, 1, "uiimghandlemeta"), "DrawImageQuad() argument 1: expected image handle or nil, got %t", 1);
-    std::shared_ptr<QOpenGLTexture> hnd;
+    TextureIndex tex_idx = 0;
     if ( !lua_isnil(L, 1) ) {
         auto imgHandle = (imgHandle_s*)lua_touserdata(L, 1);
-        if ((*imgHandle->hnd).get() == nullptr) {
-            (*imgHandle->hnd).reset(new QOpenGLTexture(*(imgHandle->img)));
-            if (!(*imgHandle->hnd)->isCreated()) {
-                // std::cout << "BROKEN TEXTURE" << imgHandle->img->text("fname").toStdString() << std::endl;
-                *imgHandle->hnd = pobwindow->white;
-            }
-        }
-        LAssert(L, imgHandle->hnd != nullptr, "DrawImageQuad(): image handle has no image loaded");
-        hnd = *imgHandle->hnd;
+        tex_idx = imgHandle->tex_idx;
+        pobwindow->GetTexture(tex_idx);
     }
     float arg[16];
     if (n > 9) {
@@ -323,13 +294,13 @@ int l_DrawImageQuad(lua_State* L)
             LAssert(L, lua_isnumber(L, i), "DrawImageQuad() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7], arg[8], arg[9], arg[10], arg[11], arg[12], arg[13], arg[14], arg[15]));
+        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(tex_idx, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7], arg[8], arg[9], arg[10], arg[11], arg[12], arg[13], arg[14], arg[15]));
     } else {
         for (int i = 2; i <= 9; i++) {
             LAssert(L, lua_isnumber(L, i), "DrawImageQuad() argument %d: expected number, got %t", i, i);
             arg[i-2] = (float)lua_tonumber(L, i);
         }
-        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(hnd, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
+        pobwindow->AppendCmd(std::make_unique<DrawImageQuadCmd>(tex_idx, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]));
     }
     return 0;
 }
@@ -462,6 +433,16 @@ DrawStringCmd::DrawStringCmd(float X, float Y, int Align, int Size, int Font, co
     t[2] = 1;
     s[3] = 0;
     t[3] = 1;
+}
+
+void DrawStringCmd::BindTexture()
+{
+    if (tex == nullptr) {
+        //throw std::runtime_error("str tex is null");
+        pobwindow->white->bind();
+    } else {
+        tex->bind();
+    }
 }
 
 int l_DrawString(lua_State* L)

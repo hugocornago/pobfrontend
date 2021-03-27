@@ -9,15 +9,9 @@ extern "C" {
     #include "lua.h"
     #include "lualib.h"
     #include "lauxlib.h"
-    //#include "luajit.h"
 }
 
 void RegisterGeneralLuaCallbacks(lua_State* L);
-
-//static int dummy_ConPrintf(lua_State* L)
-//{
-//    return 0;
-//}
 
 class SubScript : public QThread {
     Q_OBJECT

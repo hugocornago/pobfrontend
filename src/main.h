@@ -1,11 +1,15 @@
 #ifndef MAIN_H
 #define MAIN_H
+
+#include <memory>
+
 #include <QFontMetrics>
 #include <QOpenGLTexture>
 #include <QRegularExpression>
 #include <QtCore/qmath.h>
 
-#include <memory>
+#include "lazy_loaded_texture.hpp"
+
 
 // Font alignment
 enum r_fontAlign_e {
@@ -58,44 +62,64 @@ class ColorCmd : public Cmd {
     float col[4];
 };
 
-class DrawImageQuadCmd : public Cmd {
-  public:
-    DrawImageQuadCmd() {}
-  DrawImageQuadCmd(std::shared_ptr<QOpenGLTexture> Tex, float X0, float Y0, float X1, float Y1, float X2, float Y2, float X3, float Y3, float S0 = 0, float T0 = 0, float S1 = 1, float T1 = 0, float S2 = 1, float T2 = 1, float S3 = 0, float T3 = 1) : x {X0, X1, X2, X3}, y {Y0, Y1, Y2, Y3}, s {S0, S1, S2, S3}, t {T0, T1, T2, T3}, tex(Tex) {
-    }
+class DrawTextureCmd: public Cmd {
+public:
+    DrawTextureCmd() = default;
+    DrawTextureCmd(
+        float X0, float Y0, float X1, float Y1, float X2, float Y2, float X3, float Y3,
+        float S0 = 0, float T0 = 0, float S1 = 1, float T1 = 0, float S2 = 1, float T2 = 1, float S3 = 0, float T3 = 1
+        ) : x {X0, X1, X2, X3}, y {Y0, Y1, Y2, Y3}, s {S0, S1, S2, S3}, t {T0, T1, T2, T3}
+    {}
+
 
     void execute();
+
+    virtual void BindTexture() = 0;
+
+protected:
+    float x[4] = {};
+    float y[4] = {};
+    float s[4] = {};
+    float t[4] = {};
+};
+
+class DrawImageQuadCmd : public DrawTextureCmd {
+public:
+    DrawImageQuadCmd() {}
+    DrawImageQuadCmd(TextureIndex Tex, float X0, float Y0, float X1, float Y1, float X2, float Y2, float X3, float Y3, float S0 = 0, float T0 = 0, float S1 = 1, float T1 = 0, float S2 = 1, float T2 = 1, float S3 = 0, float T3 = 1) : DrawTextureCmd(X0, Y0, X1, Y1, X2, Y2, X3, Y3, S0, T0, S1, T1, S2, T2, S3, T3), tex(Tex)
+    { }
+
+    void BindTexture() override;
+
   protected:
-    std::shared_ptr<QOpenGLTexture> tex;
-    float x[4];
-    float y[4];
-    float s[4];
-    float t[4];
+    TextureIndex tex = 0;
 };
 
 class DrawImageCmd : public DrawImageQuadCmd {
   public:
-  DrawImageCmd(std::shared_ptr<QOpenGLTexture> tex, float x, float y, float w, float h, float s1 = 0, float t1 = 0, float s2 = 1.0f, float t2 = 1.0f) : DrawImageQuadCmd(tex, x, y, x + w, y, x + w, y + h, x, y + h, s1, t1, s2, t1, s2, t2, s1, t2) {
+  DrawImageCmd(TextureIndex tex, float x, float y, float w, float h, float s1 = 0, float t1 = 0, float s2 = 1.0f, float t2 = 1.0f) : DrawImageQuadCmd(tex, x, y, x + w, y, x + w, y + h, x, y + h, s1, t1, s2, t1, s2, t2, s1, t2) {
     }
 };
 
-class DrawStringCmd : public DrawImageQuadCmd {
+class DrawStringCmd : public DrawTextureCmd {
   public:
     DrawStringCmd(float X, float Y, int Align, int Size, int Font, const char *Text);
     ~DrawStringCmd() {
     }
 
-    void execute() {
+    void execute() override {
         float curCol[4];
         if (col[3] > 0) {
             glGetFloatv(GL_CURRENT_COLOR, curCol);
             glColor4fv(col);
         }
-        DrawImageQuadCmd::execute();
+        DrawTextureCmd::execute();
         if (col[3] > 0) {
             glColor4fv(curCol);
         }
     }
+
+    void BindTexture() override;
 
     void setCol(float c0, float c1, float c2) {
         col[0] = c0;
@@ -103,7 +127,9 @@ class DrawStringCmd : public DrawImageQuadCmd {
         col[2] = c2;
         col[3] = 1.0f;
     }
+
   private:
+    std::shared_ptr<QOpenGLTexture> tex;
     float col[4];
     QString text;
 };
