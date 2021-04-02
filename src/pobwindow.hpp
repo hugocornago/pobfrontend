@@ -24,7 +24,7 @@ public:
         basePath = QDir::currentPath();
         userPath = AppDataLocation;
 
-        fontFudge = 0;
+        fontFudge = -2;
 
         connect(&repaintTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWindow::update));
 
