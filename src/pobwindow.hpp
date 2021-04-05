@@ -19,8 +19,8 @@ class POBWindow : public QOpenGLWindow {
 public:
     POBWindow() : stringCache(200), textureCache(12) {
         QString AppDataLocation = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        scriptPath = QDir::currentPath();
-        scriptWorkDir = QDir::currentPath();
+        scriptPath = QDir::currentPath() + "/src";
+        scriptWorkDir = QDir::currentPath() + "/src";
         basePath = QDir::currentPath();
         userPath = AppDataLocation;
 

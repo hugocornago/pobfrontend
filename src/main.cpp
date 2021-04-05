@@ -785,6 +785,28 @@ static int l_Exit(lua_State* L)
 
 void RegisterGeneralLuaCallbacks(lua_State* L)
 {
+    // LUA_PATH/LUA_CPATH
+    {
+        lua_getfield(L, LUA_GLOBALSINDEX, "package");
+        lua_getfield(L, -1, "cpath");
+        lua_getfield(L, -2, "path");
+
+        QString cpath = pobwindow->basePath;
+        QString path = pobwindow->basePath;
+        if (lua_isstring(L, -2)) {
+            cpath = cpath + "/?.so;" + lua_tostring(L, -2);
+        }
+        if (lua_isstring(L, -1)) {
+            path = path + "/?.lua;" + lua_tostring(L, -1);
+        }
+        lua_pushstring(L, cpath.toUtf8().data());
+        lua_setfield(L, -4, "cpath");
+        lua_pushstring(L, path.toUtf8().data());
+        lua_setfield(L, -4, "path");
+
+        lua_pop(L, 3);
+    }
+
     // General function
     ADDFUNC(SetWindowTitle);
     ADDFUNC(GetCursorPos);
@@ -926,7 +948,7 @@ int main(int argc, char **argv)
 
     RegisterGeneralLuaCallbacks(L);
 
-    int result = luaL_dofile(L, "Launch.lua");
+    int result = luaL_dofile(L, "src/Launch.lua");
     if (result != 0) {
         lua_error(L);
     }
