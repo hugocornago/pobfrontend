@@ -180,7 +180,12 @@ int l_SetDrawLayer(lua_State* L)
 }
 
 void ViewportCmd::execute() {
-    glViewport(x, pobwindow->height - y - h, w, h);
+    float ratio = pobwindow->devicePixelRatio();
+    int new_x = x * ratio;
+    int new_y = (pobwindow->height - h - y) * ratio;
+    int new_w = w * ratio;
+    int new_h = h * ratio;
+    glViewport(new_x, new_y, new_w, new_h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, (float)w, (float)h, 0, -9999, 9999);
