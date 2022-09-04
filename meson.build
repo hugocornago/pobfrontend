@@ -1,13 +1,9 @@
 project('POB Frontend', 'cpp', default_options : ['cpp_std=c++17'])
 
-qt5_dep = dependency('qt5', modules : ['Gui'])
+qt6_dep = dependency('qt6', modules : ['Gui', 'OpenGL', 'Core'])
 lua_dep = dependency('luajit')
-if build_machine.system() == 'darwin'
-   gl_dep = dependency('appleframeworks', modules: ['OpenGL'])
-else
-   gl_dep = dependency('gl')
-endif
 zlib_dep = dependency('zlib')
+gl_dep = dependency('GL')
 
 # Import the extension module that knows how
 # to invoke Qt tools.
@@ -23,8 +19,8 @@ sources = [
   'src/texture_loader.cpp',
   'src/utils.cpp',
   ]
-qt5 = import('qt5')
-prep = qt5.preprocess(moc_headers : qt_headers)
+qt6 = import('qt6')
+prep = qt6.preprocess(moc_headers : qt_headers)
 
 extra_args = []
 extra_ld_args = []
@@ -42,7 +38,7 @@ extra_args += ['-Wall', '-Os', '-fno-omit-frame-pointer']
 
 executable('pobfrontend',
   sources : sources + prep,
-  dependencies : [qt5_dep, gl_dep, zlib_dep, lua_dep],
+  dependencies : [gl_dep, qt6_dep, zlib_dep, lua_dep],
   cpp_args: extra_args,
   link_args: extra_ld_args
-  )
+)

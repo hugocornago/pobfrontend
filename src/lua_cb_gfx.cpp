@@ -530,7 +530,7 @@ int l_DrawStringCursorIndex(lua_State* L)
     QFontMetrics fm(font);
     int curX = lua_tointeger(L, 4);
     int curY = lua_tointeger(L, 5);
-    int yidx = std::max(0, std::min(texts.size() - 1, curY / fm.lineSpacing()));
+    int yidx = std::max(0, std::min((int)texts.size() - 1, curY / fm.lineSpacing()));
     text = texts[yidx];
     int i = 0;
     for (;i <= text.size();i++) {
