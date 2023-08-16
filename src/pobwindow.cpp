@@ -20,7 +20,7 @@ POBWindow *pobwindow;
 namespace
 {
 
-void pushMouseString(QMouseEvent *event) {
+bool pushMouseString(QMouseEvent *event) {
     switch (event->button()) {
     case Qt::LeftButton:
         lua_pushstring(L, "LEFTBUTTON");
@@ -33,7 +33,9 @@ void pushMouseString(QMouseEvent *event) {
         break;
     default:
         std::cout << "MOUSE STRING? " << event->button() << std::endl;
+        return false;
     }
+    return true;
 }
 
 bool pushKeyString(int keycode) {
@@ -183,33 +185,36 @@ void POBWindow::mouseMoveEvent(QMouseEvent *event) {
 
 void POBWindow::mousePressEvent(QMouseEvent *event) {
     pushCallback("OnKeyDown");
-    pushMouseString(event);
-    lua_pushboolean(L, false);
-    int result = lua_pcall(L, 3, 0, 0);
-    if (result != 0) {
-        lua_error(L);
-    }
+    if (pushMouseString(event)) {
+        lua_pushboolean(L, false);
+        int result = lua_pcall(L, 3, 0, 0);
+        if (result != 0) {
+            lua_error(L);
+        }
+    };
     update();
 }
 
 void POBWindow::mouseReleaseEvent(QMouseEvent *event) {
     pushCallback("OnKeyUp");
-    pushMouseString(event);
-    int result = lua_pcall(L, 2, 0, 0);
-    if (result != 0) {
-        lua_error(L);
-    }
+    if (pushMouseString(event)) {
+        int result = lua_pcall(L, 2, 0, 0);
+        if (result != 0) {
+            lua_error(L);
+        }
+    };
     update();
 }
 
 void POBWindow::mouseDoubleClickEvent(QMouseEvent *event) {
     pushCallback("OnKeyDown");
-    pushMouseString(event);
-    lua_pushboolean(L, true);
-    int result = lua_pcall(L, 3, 0, 0);
-    if (result != 0) {
-        lua_error(L);
-    }
+    if (pushMouseString(event)) {
+        lua_pushboolean(L, true);
+        int result = lua_pcall(L, 3, 0, 0);
+        if (result != 0) {
+            lua_error(L);
+        }
+    };
     update();
 }
 
